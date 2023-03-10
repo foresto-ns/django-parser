@@ -1,0 +1,54 @@
+version: '3'
+
+services:
+  server:
+    container_name: ${APP}-server
+    restart: always
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    links:
+      - db:db
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./parser:/usr/src/app
+      - ./static:/usr/src/static
+    env_file:
+      - .env
+    command: /usr/local/bin/gunicorn parser.wsgi:application -w 20 -b :8000
+    networks:
+      - net
+
+  db:
+    container_name: ${APP}-db
+    restart: always
+    image: postgres:14-alpine
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+    networks:
+      - net
+
+volumes:
+  postgresql-data:
+
+networks:
+  net:
